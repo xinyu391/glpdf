@@ -244,6 +244,8 @@ func readObject(pdf *Pdf, f *os.File, offset int) (obj *objectData, err error) {
 	f.Seek(int64(offset), os.SEEK_SET)
 
 	br := bufio.NewReader(f)
+	parseObject(br)
+	return
 	//读取对象号
 	line, err := br.ReadString('\n') // n 0 obj [<<]
 	if err != nil {
@@ -489,10 +491,5 @@ func numType(buf []byte) int {
 	return ref
 }
 func readStream(r *bufio.Reader) (stream Stream, err error) {
-	return
-}
-
-func readLine(f *os.File) (line string, err error) {
-
 	return
 }
