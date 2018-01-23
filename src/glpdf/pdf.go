@@ -342,9 +342,9 @@ func readDictonary(br *bufio.Reader, started bool) (dict map[Name]DataType, err 
 			dict[key] = id
 			log("\tRef value:", idStr, numStr, rStr)
 		case DTYPE_ARRAY:
+			readArray(br)
 			break
 		case DTYPE_DICT:
-			readArray(br)
 			readDictonary(br, false)
 		}
 
@@ -357,11 +357,17 @@ func readArray(br *bufio.Reader) (array []DataType) {
 	if c != '[' {
 		panic("readArray but not start [")
 	}
-	for {
+	for { ///Kids [ 4 0 R ]
 
-		str, err := br.ReadString(' ')
+		str, err := readWord(br)
+		str = strings.TrimSpace(str)
+		if str == "" {
+			continue
+		}
 		if err != nil {
 			log("readArray ", err)
+		} else {
+			log("readArray ", str)
 		}
 		if str[len(str)-1:] == "]" {
 			break
@@ -489,10 +495,5 @@ func numType(buf []byte) int {
 	return ref
 }
 func readStream(r *bufio.Reader) (stream Stream, err error) {
-	return
-}
-
-func readLine(f *os.File) (line string, err error) {
-
 	return
 }
