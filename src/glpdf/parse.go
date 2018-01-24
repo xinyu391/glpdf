@@ -276,7 +276,11 @@ func parseStream(fr *fileReader, pdf *Pdf, obj *PdfObj) {
 	// 根据filter 解密
 	filter := dict[NAME_FILTER]
 	if filter != nil {
-		out, err := decode(buf, FilterParam{filter.(Name)})
+		var param FilterParam
+		if n, ok := filter.(Name); ok {
+			param = FilterParam{n}
+		}
+		out, err := decode(buf, param)
 		if err == nil {
 			buf = out
 		}
