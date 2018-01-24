@@ -9,5 +9,12 @@ func log(a ...interface{}) {
 }
 
 func loge(a ...interface{}) {
-	fmt.Println(a...)
+	b := append([]interface{}{}, "[E]")
+	b = append(b, a...)
+	fmt.Println(b...)
+}
+func logw(a ...interface{}) {
+	b := append([]interface{}{}, "[W]")
+	b = append(b, a...)
+	fmt.Println(b...)
 }

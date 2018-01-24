@@ -7,16 +7,23 @@ import (
 )
 
 func main() {
-	fmt.Println("pdf.go", len("位"))
 	pdf, err := glpdf.Open("sample.pdf")
 	fmt.Println("pdf ", pdf, err)
 	num := pdf.GetPageNum()
 	page := pdf.GetPage(num - 1)
 	page.Draw()
 	test()
+	loge("xxxxx", "dd")
+}
+func loge(a ...interface{}) {
+	b := append([]interface{}{}, "[E]")
+	b = append(b, a...)
+	fmt.Println(b...)
 }
 func test() {
-	str := "6d79737472696e67"
+	s := "한"
+	fmt.Println([]byte(s))
+	str := "7061636b616765206d61696e"
 	buf := []byte(str)
 
 	size := len(buf) / 2

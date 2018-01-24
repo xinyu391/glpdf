@@ -10,7 +10,7 @@ import (
 
 type Pdf struct {
 	version    string
-	xrefoffset int
+	xrefoffset int32
 	objMap     map[int32]*PdfObj
 	root       int
 	info       int
@@ -43,8 +43,8 @@ type PdfObj struct {
 	stream *Stream
 }
 
-func Open(file string) (*Pdf, error) {
-	pdf := new(Pdf)
+func Open(file string) (pdf *Pdf, err error) {
+	pdf = new(Pdf)
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, err
@@ -55,9 +55,11 @@ func Open(file string) (*Pdf, error) {
 		return nil, errors.New("Not Pdf File (not find pdf-ver)")
 	}
 	// read startxref
-	offset := readXrefOffset(f)
-	if offset == 0 {
-		return nil, errors.New("Not Pdf File(not find xref")
+	fr := NewfileReader(f)
+	offset, err := readXrefOffset(fr)
+
+	if err != nil {
+		return
 	}
 
 	pdf.xrefoffset = offset
@@ -71,7 +73,6 @@ func Open(file string) (*Pdf, error) {
 	}
 	readTrailer(pdf, f)
 
-	fr := NewfileReader(f)
 	pdf.objMap = make(map[int32]*PdfObj)
 	for k, v := range objRefMap {
 		log("read obj ", k)
@@ -101,7 +102,29 @@ func (pdf *Pdf) GetPage(num int) *Page {
 }
 
 //读取xref对象索引表
-func readXrefTable(f *os.File, offset int) (objMap map[int32]*pdfObjRef, err error) {
+//func readXrefTable2(fr *fileReader, offset int32) (objMap map[int32]*pdfObjRef, err error) {
+//	fr.Seek(int64(offset), os.SEEK_SET)
+//	tk, _, _, _ := peek(fr)
+//	// tk==TK_XREF
+//	tk, _, id, _ := peek(fr)
+//	//tk==TK_INT
+//	tk, _, count, _ := peek(fr)
+//	//tk==TK_INT
+//	objMap = make(map[int32]*pdfObjRef, count)
+
+//	for {
+//		tk, _, offset, _ := peek(fr)
+//		tk, _, gen, _ := peek(fr)
+//		tk, _, offset, _ := peek(fr)
+//		count--
+//		if count == 0 {
+//			break
+//		}
+//	}
+//	return
+//}
+
+func readXrefTable(f *os.File, offset int32) (objMap map[int32]*pdfObjRef, err error) {
 	f.Seek(int64(offset), os.SEEK_SET)
 	br := bufio.NewReader(f)
 
@@ -210,32 +233,26 @@ func readTrailer(pdf *Pdf, f *os.File) error {
 }
 
 //read startxref offset
-func readXrefOffset(f *os.File) int {
-	f.Seek(-32, os.SEEK_END)
-	br := bufio.NewReader(f)
-	offset := 0
+func readXrefOffset(fr *fileReader) (offset int32, err error) {
+	fr.Seek(-32, os.SEEK_END)
+	var tk int
 	for {
-		l, err := br.ReadString('\n')
-
-		if err != nil || l == "" {
+		tk, _, _, _ = peek(fr)
+		if tk == TK_STARTXREF || tk == TK_EOF {
 			break
 		}
-		l = strings.TrimSpace(l)
-
-		if strings.Compare(l, "startxref") == 0 {
-
-			l, err = br.ReadString('\n')
-			if err != nil {
-				break
-			}
-			l = strings.TrimSpace(l)
-			offset, err = strconv.Atoi(l)
-			//log("find offset", l, offset, err)
-		}
-
 	}
-
-	return offset
+	if tk == TK_STARTXREF {
+		tk, _, n, _ := peek(fr)
+		if tk == TK_INT {
+			offset = n
+		} else {
+			log("should be int")
+		}
+	} else {
+		err = errors.New("not find startxref")
+	}
+	return
 }
 
 //func readRoot(pdf *Pdf, f *os.File) {

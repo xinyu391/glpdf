@@ -29,6 +29,8 @@ const (
 	TK_REAL
 	TK_KEYWORD //20
 	TK_NULL
+	TK_STARTXREF
+	TK_XREF
 )
 const (
 	EOF = 0xff
@@ -146,6 +148,10 @@ func typeByName(name string) int {
 		return TK_BEGIN_STREAM
 	case "endstream":
 		return TK_END_STREAM
+	case "startxref":
+		return TK_STARTXREF
+	case "xref":
+		return TK_XREF
 	default:
 		return TK_KEYWORD
 
@@ -284,9 +290,9 @@ func parseStream(fr *fileReader, pdf *Pdf, obj *PdfObj) {
 		if err == nil {
 			buf = out
 		}
-		if len(out) == 5846 {
-			log("stream ", string(out))
-		}
+		//		if obj.ref.id == 47 {
+		log("stream ", string(out))
+		//		}
 	}
 	stream.load = true
 	stream.stream = buf
