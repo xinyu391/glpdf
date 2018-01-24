@@ -30,6 +30,9 @@ func (fr *fileReader) Seek(offset int64, whence int) (off int64, err error) {
 func (fr *fileReader) ReadString(delim byte) (line string, err error) {
 	return fr.br.ReadString(delim)
 }
+func (fr *fileReader) ReadBytes(delim byte) (line []byte, err error) {
+	return fr.br.ReadBytes(delim)
+}
 func (fr *fileReader) ReadByte() (c byte, err error) {
 	return fr.br.ReadByte()
 }

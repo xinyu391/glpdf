@@ -284,6 +284,9 @@ func parseStream(fr *fileReader, pdf *Pdf, obj *PdfObj) {
 		if err == nil {
 			buf = out
 		}
+		if len(out) == 5846 {
+			log("stream ", string(out))
+		}
 	}
 	stream.load = true
 	stream.stream = buf
@@ -477,7 +480,31 @@ func parseName(fr *fileReader) (name string, err error) {
 	return
 }
 func parseString2(fr *fileReader) (str string, err error) {
-	return fr.ReadString('>')
+	buf, e := fr.ReadBytes('>')
+	if e != nil {
+		return "", e
+	}
+	size := len(buf) / 2
+	out := make([]byte, size)
+	for i := 0; i < size; i++ {
+		out[i] = hex2byte(buf[i*2 : i*2+2])
+	}
+	str = string(out)
+	return
+}
+func hex2byte(b []byte) byte {
+	var a, c byte
+	if b[0] <= '9' {
+		a = b[0] - '0'
+	} else {
+		a = b[0] - 'a' + 10
+	}
+	if b[1] <= '9' {
+		c = b[1] - '0'
+	} else {
+		c = b[1] - 'a' + 10
+	}
+	return a*16 + c
 }
 func parseString1(fr *fileReader) (str string, err error) {
 	bal := 1
