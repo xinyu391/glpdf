@@ -51,8 +51,8 @@ type Token struct {
 }
 
 func (t *Token) is(code ...int) bool {
-	for k, _ := range code {
-		if t.code == k {
+	for _, v := range code {
+		if t.code == v {
 			return true
 		}
 	}
@@ -173,6 +173,7 @@ func lexer(fr RandomReader) (tk *Token) {
 	return
 }
 
+//Deprecated
 func peek(fr RandomReader) (t int, str string, n int32, r float32) {
 	t = TK_NULL
 	var e error
@@ -487,7 +488,7 @@ func parseDict(fr RandomReader) (dict Dict, err error) {
 	}
 	return
 }
-func parseArray(fr RandomReader) (array []DataType, err error) {
+func parseArray(fr RandomReader) (array Array, err error) {
 	var a, b int32
 	nc := 0
 	for {

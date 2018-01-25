@@ -11,9 +11,9 @@ type Pdf struct {
 	version    string
 	xrefoffset int32
 	objMap     map[int32]*PdfObj
-	root       int
-	info       int
-	size       int
+	root       int32
+	info       int32
+	size       int32
 }
 
 type Name string
@@ -23,6 +23,7 @@ type Stream struct {
 	load   bool
 }
 type Dict map[Name]DataType
+type Array []DataType
 
 type ObjRef struct {
 	id  int32
@@ -93,6 +94,7 @@ func Open(file string) (pdf *Pdf, err error) {
 		}
 
 	}
+	parseDoc(pdf)
 	return pdf, nil
 }
 
@@ -191,40 +193,22 @@ func readVersion(fr RandomReader) (version string) {
 }
 func readTrailer(pdf *Pdf, fr RandomReader) error {
 
-	l, err := fr.ReadString('\n')
-	if err != nil {
-		return nil
+	tk := lexer(fr)
+	if !tk.isKeyword("trailer") {
+		loge("not find trailer")
+		return errors.New("not find trailer")
 	}
-	l = strings.TrimSpace(l)
-	if l != "trailer" {
-		return errors.New("Not find trailer")
-	}
-	for {
-		l, err = fr.ReadString('\n')
-		if err != nil {
-			return err
-		}
-		l = strings.TrimSpace(l)
-		if l == "startxref" {
-			break
-		}
-		//		log("tralier ", l)
-
-		switch tmp := strings.Split(l, " "); tmp[0] {
-		case "/Root":
-			id, _ := strconv.Atoi(tmp[1])
-			//			log("root id ", id)
-			pdf.root = id
-		case "/Size":
-			id, _ := strconv.Atoi(tmp[1])
-			//			log("Size is ", id)
-			pdf.size = id
-		case "/Info":
-			id, _ := strconv.Atoi(tmp[1])
-			//			log("Info id ", id)
-			pdf.info = id
-		case "/Encrypt":
-		default:
+	tk = lexer(fr)
+	loge("code  ", tk.code)
+	if tk.is(TK_BEGIN_DICT) {
+		dict, err := parseDict(fr)
+		if err == nil {
+			pdf.root = dict["Root"].(ObjRef).id
+			info := dict["Info"]
+			if info != nil {
+				pdf.info = info.(ObjRef).id
+			}
+			pdf.size = dict["Size"].(int32)
 
 		}
 	}

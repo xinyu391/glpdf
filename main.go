@@ -8,12 +8,12 @@ import (
 )
 
 func main() {
-	//	pdf, err := glpdf.Open("p1.pdf")
-	//	fmt.Println("pdf ", pdf, err)
+	pdf, err := glpdf.Open("p2.pdf")
+	fmt.Println("pdf ", pdf, err)
 	//	num := pdf.GetPageNum()
 	//	page := pdf.GetPage(num - 1)
 	//	page.Draw()
-	test()
+	//	test()
 	loge("xxxxx", "dd")
 }
 func loge(a ...interface{}) {
@@ -43,19 +43,14 @@ endcodespacerange
 <28EF> <5B57>
 <39E1> <6C49>
 endbfchar
-begincidchar
-<a0>1
-<a9>96
-<af>195
-<d863ddb9>18942
-endcidchar
 endcmap CMapName currentdict /CMap defineresource pop end end`
 	cmap, _ := glpdf.LoadCmapBytes([]byte(str))
+	loge(cmap)
 	// 汉字
 	cid := "28EF"
 	unic, _ := cmap.Lookup2(hexStr2bytes([]byte(cid)))
 	r := utf16.Decode([]uint16{uint16(unic)})
-	fmt.Println("28ef->", unic, []byte(string(r)))
+	fmt.Println("28ef->", unic, string(r))
 	//\ud862\udf9c
 	s := "df9cd862" // 7FFF FFFF
 

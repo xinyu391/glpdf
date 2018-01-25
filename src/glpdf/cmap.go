@@ -18,12 +18,12 @@ type Cmap struct {
 }
 type codeSpace struct {
 	n    int
-	low  uint
-	high uint
+	low  uint32
+	high uint32
 }
 type cid2uinc struct {
-	low  uint
-	high uint
+	low  uint32
+	high uint32
 	unic int32 //rune
 }
 
@@ -34,24 +34,24 @@ func NewCmap() (cmap *Cmap) {
 	return
 }
 
-func (cmap *Cmap) mapOne(src uint32, dst int32) {
-	//	cmap.cmap = append(cmap.cmap, cid2uinc{src, src, dst})
+func (cmap *Cmap) mapOne(src uint32, dst uint32) {
+	cmap.cmap = append(cmap.cmap, cid2uinc{src, src, int32(dst)})
 }
 func (cmap *Cmap) mapOneToMany(lo, hi uint, n int) {
 }
-func (cmap *Cmap) addRange(lo, hi uint, out int32, n int) {
+func (cmap *Cmap) addRange(lo, hi uint32, out int32, n int) {
 	//TODO add_range
 	cmap.cmap = append(cmap.cmap, cid2uinc{lo, hi, out})
 }
-func (cmap *Cmap) addCodespace(lo, hi uint, n int) {
+func (cmap *Cmap) addCodespace(lo, hi uint32, n int) {
 	cmap.codespace = append(cmap.codespace, codeSpace{n, lo, hi})
 }
 func (cmap *Cmap) Lookup2(cid []byte) (unicode int32, err error) {
 	code := codeFromString(cid)
 	log("code", code)
-	return cmap.lookup(code)
+	return cmap.lookup(uint32(code))
 }
-func (cmap *Cmap) lookup(cid uint) (unicode int32, err error) {
+func (cmap *Cmap) lookup(cid uint32) (unicode int32, err error) {
 	size := len(cmap.cmap)
 	//TODO 简单实现，顺序搜索
 	for n := 0; n < size; n++ {
@@ -154,7 +154,7 @@ func parseCidChar(fr RandomReader, cmap *Cmap) (err error) {
 			tk = lexer(fr)
 			if dst, ok := tk.num(); ok {
 				//				log("cid char", hexStrToInt(src), dst)
-				cmap.mapOne(codeFromHex(src), dst)
+				cmap.mapOne(codeFromHex(src), uint32(dst))
 			}
 		}
 	}
@@ -178,7 +178,7 @@ func parseBfChar(fr RandomReader, cmap *Cmap) (err error) {
 		if src, ok := tk.str(); ok {
 			tk = lexer(fr)
 			if dst, ok := tk.str(); ok {
-				cmap.mapOne(codeFromHex(src), int32(codeFromString([]byte(dst))))
+				cmap.mapOne(codeFromHex(src), codeFromHex(dst))
 			} else {
 				err = errors.New("")
 			}
@@ -207,7 +207,7 @@ func parseBfChar2(fr RandomReader, cmap *Cmap) (err error) {
 					n = 2
 				}
 				log("parseBfChar  ", src, dst, n)
-				cmap.addRange(src, src, int32(dst), n)
+				cmap.addRange(uint32(src), uint32(src), int32(dst), n)
 			} else {
 				break
 			}
@@ -227,8 +227,8 @@ func parseCodespaceRange(fr RandomReader, cmap *Cmap) (err error) {
 		} else if tk == TK_STRING {
 			tk2, str2, _, _ := peek(fr)
 			if tk2 == TK_STRING {
-				lo := codeFromString([]byte(str))
-				hi := codeFromString([]byte(str2))
+				lo := codeFromHex(str)
+				hi := codeFromHex(str2)
 				cmap.addCodespace(lo, hi, 0)
 				logw("parseCodespaceRange ", str, str2, lo, hi)
 			} else {
