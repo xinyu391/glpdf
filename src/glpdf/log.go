@@ -13,6 +13,11 @@ func loge(a ...interface{}) {
 	b = append(b, a...)
 	fmt.Println(b...)
 }
+func logd(a ...interface{}) {
+	//	b := append([]interface{}{}, "[D]")
+	//	b = append(b, a...)
+	//	fmt.Println(b...)
+}
 func logw(a ...interface{}) {
 	b := append([]interface{}{}, "[W]")
 	b = append(b, a...)

@@ -1,7 +1,6 @@
 package glpdf
 
 import (
-	"bufio"
 	"errors"
 	"os"
 	"strconv"
@@ -49,13 +48,16 @@ func Open(file string) (pdf *Pdf, err error) {
 	if err != nil {
 		return nil, err
 	}
-	pdf.version = readVersion(f)
+
+	fr := newFileReader(f)
+
+	pdf.version = readVersion(fr)
 
 	if pdf.version == "" {
 		return nil, errors.New("Not Pdf File (not find pdf-ver)")
 	}
-	// read startxref
-	fr := NewfileReader(f)
+
+	//	 read startxref
 	offset, err := readXrefOffset(fr)
 
 	if err != nil {
@@ -65,13 +67,13 @@ func Open(file string) (pdf *Pdf, err error) {
 	pdf.xrefoffset = offset
 
 	var objRefMap map[int32]*pdfObjRef
-	objRefMap, err = readXrefTable(f, offset)
+	objRefMap, err = readXrefTable(fr, offset)
 
 	if err != nil {
 		log("parse error:", err)
 		return nil, err
 	}
-	readTrailer(pdf, f)
+	readTrailer(pdf, fr)
 
 	pdf.objMap = make(map[int32]*PdfObj)
 	for k, v := range objRefMap {
@@ -102,7 +104,7 @@ func (pdf *Pdf) GetPage(num int) *Page {
 }
 
 //读取xref对象索引表
-//func readXrefTable2(fr *fileReader, offset int32) (objMap map[int32]*pdfObjRef, err error) {
+//func readXrefTable2(fr RandomReader, offset int32) (objMap map[int32]*pdfObjRef, err error) {
 //	fr.Seek(int64(offset), os.SEEK_SET)
 //	tk, _, _, _ := peek(fr)
 //	// tk==TK_XREF
@@ -124,11 +126,10 @@ func (pdf *Pdf) GetPage(num int) *Page {
 //	return
 //}
 
-func readXrefTable(f *os.File, offset int32) (objMap map[int32]*pdfObjRef, err error) {
-	f.Seek(int64(offset), os.SEEK_SET)
-	br := bufio.NewReader(f)
+func readXrefTable(fr RandomReader, offset int32) (objMap map[int32]*pdfObjRef, err error) {
+	fr.Seek(int64(offset), os.SEEK_SET)
 
-	l, err := br.ReadString('\n')
+	l, err := fr.ReadString('\n')
 	if err != nil {
 		return
 	}
@@ -141,7 +142,7 @@ func readXrefTable(f *os.File, offset int32) (objMap map[int32]*pdfObjRef, err e
 	count := 0
 	id := 0
 	for {
-		l, err = br.ReadString('\n')
+		l, err = fr.ReadString('\n')
 		if err != nil {
 			break
 		}
@@ -168,17 +169,16 @@ func readXrefTable(f *os.File, offset int32) (objMap map[int32]*pdfObjRef, err e
 		}
 
 		if count == 0 { // 将f重新定位到已读的位置(bufio.Reader会缓存一些）
-			r := br.Buffered()
-			f.Seek(int64(-r), os.SEEK_CUR)
+
 			break
 		}
 
 	}
 	return
 }
-func readVersion(f *os.File) (version string) {
+func readVersion(fr RandomReader) (version string) {
 	buf := make([]byte, 32)
-	n, _ := f.Read(buf)
+	n, _ := fr.Read(buf)
 	for i := 0; i < n; i++ {
 		c := buf[i]
 		if c == '\n' || c == '\r' {
@@ -189,10 +189,9 @@ func readVersion(f *os.File) (version string) {
 	}
 	return
 }
-func readTrailer(pdf *Pdf, f *os.File) error {
-	br := bufio.NewReader(f)
+func readTrailer(pdf *Pdf, fr RandomReader) error {
 
-	l, err := br.ReadString('\n')
+	l, err := fr.ReadString('\n')
 	if err != nil {
 		return nil
 	}
@@ -201,7 +200,7 @@ func readTrailer(pdf *Pdf, f *os.File) error {
 		return errors.New("Not find trailer")
 	}
 	for {
-		l, err = br.ReadString('\n')
+		l, err = fr.ReadString('\n')
 		if err != nil {
 			return err
 		}
@@ -233,7 +232,7 @@ func readTrailer(pdf *Pdf, f *os.File) error {
 }
 
 //read startxref offset
-func readXrefOffset(fr *fileReader) (offset int32, err error) {
+func readXrefOffset(fr RandomReader) (offset int32, err error) {
 	fr.Seek(-32, os.SEEK_END)
 	var tk int
 	for {
@@ -261,7 +260,7 @@ func readXrefOffset(fr *fileReader) (offset int32, err error) {
 //	obj.data, _ = readObject(pdf, f, obj.offset)
 //}
 
-func readObject(pdf *Pdf, fr *fileReader, offset int) (obj *PdfObj, err error) {
+func readObject(pdf *Pdf, fr RandomReader, offset int) (obj *PdfObj, err error) {
 	//跳转到对象开始位置
 	fr.Seek(int64(offset), os.SEEK_SET)
 	obj, err = parseObject(fr)

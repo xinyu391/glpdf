@@ -2,8 +2,8 @@ package glpdf
 
 import (
 	"bytes"
+	"io"
 	"os"
-	"strconv"
 )
 
 const (
@@ -43,21 +43,155 @@ const (
 	NAME_FlateDecode = Name("FlateDecode")
 )
 
-func peek(fr *fileReader) (t int, str string, n int32, r float32) {
-	t = TK_NULL
-	var e error
+type Token struct {
+	code int
+	buf  string // str []byte
+	n    int32
+	r    float32
+}
+
+func (t *Token) is(code ...int) bool {
+	for k, _ := range code {
+		if t.code == k {
+			return true
+		}
+	}
+	return false
+}
+func (t *Token) isKeyword(str string) (ok bool) {
+	return t.code == TK_KEYWORD && t.buf == str
+}
+func (t *Token) str() (str string, ok bool) {
+	if t.code == TK_STRING {
+		return t.buf, true
+	} else {
+		return "", false
+	}
+}
+func (t *Token) num() (n int32, ok bool) {
+	if t.code == TK_INT {
+		return t.n, true
+	}
+	return
+}
+func (t *Token) real() (r float32, ok bool) {
+	if t.code == TK_INT {
+		return t.r, true
+	}
+	return
+}
+
+func lexer(fr RandomReader) (tk *Token) {
+	tk = new(Token)
+	tk.code = TK_NULL
+
 	for {
-		c1, _ := fr.Peek(2)
+		c1, err := fr.Peek(2)
+		if err == io.EOF {
+			tk.code = TK_EOF
+			return
+		}
 		c := c1[0]
-		log("\tpeek2 ", c1, isWhite(c))
+		logd("\tpeek2 ", c1, isWhite(c))
 		switch {
 		case isWhite(c):
 			skipWhite(fr)
-			log("\tskipwhite")
+			logd("\tskipwhite")
+			continue
+		case isNumber(c):
+			tk.code, tk.n, tk.r, _ = parseNumber(fr)
+			logd("\tisNumber", tk)
+			return
+		}
+		switch c {
+		case EOF:
+			tk.code = TK_EOF
+			return
+		case '%':
+			skipComment(fr)
+		case '/':
+			fr.ReadByte()
+			tk.buf, _ = parseName(fr)
+			tk.code = TK_NAME
+			logd("\tisName", tk)
+			return
+		case '(':
+			fr.ReadByte()
+			tk.buf, _ = parseString1(fr)
+			tk.code = TK_STRING
+			logd("\tisString", tk)
+			return
+		case ')':
+			logw("\twarning lexical error :unexpected ')'")
+		case '<':
+
+			if c1[1] == '<' {
+				fr.ReadByte()
+				fr.ReadByte()
+				tk.code = TK_BEGIN_DICT
+				logd("\tfind begin dict")
+				return
+			} else { //string
+				fr.ReadByte()
+				tk.buf, _ = parseString2(fr)
+				tk.code = TK_STRING
+				return
+			}
+
+		case '>':
+			if c1[1] == '>' {
+				fr.ReadByte()
+				fr.ReadByte()
+				tk.code = TK_END_DICT
+				return
+			} else {
+				logd("\terror ")
+			}
+			fr.ReadByte()
+		case '[':
+			fr.ReadByte()
+			tk.code = TK_BEGIN_ARRAY
+			return
+		case ']':
+			fr.ReadByte()
+			tk.code = TK_END_ARRAY
+			return
+		case '{':
+			panic("{{{{{{")
+		case '}':
+			panic("}}}}")
+
+		default:
+			tk.buf, _ = parseName(fr)
+
+			tk.code = typeByName(tk.buf)
+			logd("\tparseNmae", tk)
+			return
+		}
+
+	}
+	return
+}
+
+func peek(fr RandomReader) (t int, str string, n int32, r float32) {
+	t = TK_NULL
+	var e error
+	for {
+		c1, err := fr.Peek(2)
+		if err == io.EOF {
+			t = TK_EOF
+			return
+		}
+		c := c1[0]
+		logd("\tpeek2 ", c1, isWhite(c))
+		switch {
+		case isWhite(c):
+			skipWhite(fr)
+			logd("\tskipwhite")
 			continue
 		case isNumber(c):
 			t, n, r, e = parseNumber(fr)
-			log("\tisNumber", n, r, e)
+			logd("\tisNumber", n, r, e)
 
 			return
 		}
@@ -70,24 +204,24 @@ func peek(fr *fileReader) (t int, str string, n int32, r float32) {
 		case '/':
 			fr.ReadByte()
 			str, _ = parseName(fr)
-			log("\tTK_name ", str)
+			logd("\tTK_name ", str)
 			t = TK_NAME
 			return
 		case '(':
 			fr.ReadByte()
 			str, _ = parseString1(fr)
-			log("\tTK_string ", str)
+			logd("\tTK_string ", str)
 			t = TK_STRING
 			return
 		case ')':
-			log("\twarning lexical error :unexpected ')'")
+			logw("\twarning lexical error :unexpected ')'")
 		case '<':
 
 			if c1[1] == '<' {
 				fr.ReadByte()
 				fr.ReadByte()
 				t = TK_BEGIN_DICT
-				log("\tfind begin dict")
+				logd("\tfind begin dict")
 				return
 			} else { //string
 				fr.ReadByte()
@@ -103,7 +237,7 @@ func peek(fr *fileReader) (t int, str string, n int32, r float32) {
 				t = TK_END_DICT
 				return
 			} else {
-				log("\terror ")
+				logd("\terror ")
 			}
 			fr.ReadByte()
 		case '[':
@@ -123,7 +257,7 @@ func peek(fr *fileReader) (t int, str string, n int32, r float32) {
 			str, _ = parseName(fr)
 
 			t = typeByName(str)
-			log("\tparseNmae", str, t)
+			logd("\tparseNmae", str, t)
 			return
 		}
 
@@ -158,7 +292,7 @@ func typeByName(name string) int {
 	}
 }
 
-func parseObject(fr *fileReader) (obj *PdfObj, err error) {
+func parseObject(fr RandomReader) (obj *PdfObj, err error) {
 
 	//read 1 0 R
 	token, _, n, _ := peek(fr)
@@ -229,7 +363,7 @@ func parseObject(fr *fileReader) (obj *PdfObj, err error) {
 }
 
 // 仅做mark
-func markStream(fr *fileReader) (stream *Stream, err error) {
+func markStream(fr RandomReader) (stream *Stream, err error) {
 	c, _ := fr.ReadByte()
 	for c == ' ' {
 		c, _ = fr.ReadByte()
@@ -252,7 +386,7 @@ func markStream(fr *fileReader) (stream *Stream, err error) {
 	return
 }
 
-func parseStream(fr *fileReader, pdf *Pdf, obj *PdfObj) {
+func parseStream(fr RandomReader, pdf *Pdf, obj *PdfObj) {
 	stream := obj.stream
 	if stream.offset <= 0 {
 		return
@@ -290,14 +424,14 @@ func parseStream(fr *fileReader, pdf *Pdf, obj *PdfObj) {
 		if err == nil {
 			buf = out
 		}
-		//		if obj.ref.id == 47 {
-		log("stream ", string(out))
+		//		if len(out) < 1000 || obj.ref.id == 7 {
+		//			log("stream ", string(out))
 		//		}
 	}
 	stream.load = true
 	stream.stream = buf
 }
-func parseDict(fr *fileReader) (dict Dict, err error) {
+func parseDict(fr RandomReader) (dict Dict, err error) {
 	dict = make(Dict)
 	finish := false
 	var key Name
@@ -353,7 +487,7 @@ func parseDict(fr *fileReader) (dict Dict, err error) {
 	}
 	return
 }
-func parseArray(fr *fileReader) (array []DataType, err error) {
+func parseArray(fr RandomReader) (array []DataType, err error) {
 	var a, b int32
 	nc := 0
 	for {
@@ -413,12 +547,10 @@ func parseArray(fr *fileReader) (array []DataType, err error) {
 	}
 	return
 }
-func parseNumber(fr *fileReader) (t int, n int32, r float32, err error) {
+func parseNumber(fr RandomReader) (t int, n int32, r float32, err error) {
 	var c byte
 	isreal := false
 	finish := false
-	var n64 int64
-	var r64 float64
 	n = -1
 	r = -1
 
@@ -448,28 +580,26 @@ func parseNumber(fr *fileReader) (t int, n int32, r float32, err error) {
 	}
 	if isreal {
 		t = TK_REAL
-		r64, err = strconv.ParseFloat(buf.String(), 64)
-		if err == nil {
-			r = float32(r64)
-		}
+		r = strToFloat(buf.String())
 	} else {
 		t = TK_INT
-		n64, err = strconv.ParseInt(buf.String(), 10, 32)
-		if err == nil {
-			n = int32(n64)
-		}
+		n = strToInt(buf.String())
 	}
 	if err != nil {
-		log("parseNum", err)
+		loge("parseNum", err)
 	}
 	return
 }
-func parseName(fr *fileReader) (name string, err error) {
+func parseName(fr RandomReader) (name string, err error) {
 	rawBuf := make([]byte, 0, 128)
 	buf := bytes.NewBuffer(rawBuf)
 	var c byte
+	var c1 []byte
 	for {
-		c1, _ := fr.Peek(1)
+		c1, err = fr.Peek(1)
+		if err != nil {
+			return
+		}
 		c = c1[0]
 
 		if isWhite(c) || isDelim(c) {
@@ -485,34 +615,20 @@ func parseName(fr *fileReader) (name string, err error) {
 	name = buf.String()
 	return
 }
-func parseString2(fr *fileReader) (str string, err error) {
+func parseString2(fr RandomReader) (str string, err error) {
 	buf, e := fr.ReadBytes('>')
 	if e != nil {
 		return "", e
 	}
-	size := len(buf) / 2
-	out := make([]byte, size)
-	for i := 0; i < size; i++ {
-		out[i] = hex2byte(buf[i*2 : i*2+2])
-	}
-	str = string(out)
+	//	size := len(buf) / 2
+	//	out := make([]byte, size)
+	//	for i := 0; i < size; i++ {
+	//		out[i] = hexTobyte(buf[i*2 : i*2+2])
+	//	}
+	str = string(buf[:len(buf)-1])
 	return
 }
-func hex2byte(b []byte) byte {
-	var a, c byte
-	if b[0] <= '9' {
-		a = b[0] - '0'
-	} else {
-		a = b[0] - 'a' + 10
-	}
-	if b[1] <= '9' {
-		c = b[1] - '0'
-	} else {
-		c = b[1] - 'a' + 10
-	}
-	return a*16 + c
-}
-func parseString1(fr *fileReader) (str string, err error) {
+func parseString1(fr RandomReader) (str string, err error) {
 	bal := 1
 	finish := false
 	buf := make([]byte, 0, 32)
@@ -581,7 +697,7 @@ func isWhite(c byte) bool {
 	}
 	return false
 }
-func skipWhite(r *fileReader) {
+func skipWhite(r RandomReader) {
 	for {
 		c1, err := r.Peek(1)
 		if err != nil {
@@ -595,7 +711,7 @@ func skipWhite(r *fileReader) {
 		}
 	}
 }
-func skipComment(r *fileReader) {
+func skipComment(r RandomReader) {
 	for {
 		c, err := r.ReadByte()
 		if err != nil {
