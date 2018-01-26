@@ -10,8 +10,18 @@ cid 在不同语言集上对应的unicode字符是不一样的
 ### 
 + 对于<>字符串，解析时，不进行转码（hex字符到byte），具体用到时在进行转换
 cmap:maps character codes to glyph selector(cid)
+字体编码与CID
+CID和Unicode 
 Adobe类有Japan1、Korea1、GB1、CNS1  4种字集
 CID转Unicode字码表 名称后面加-UCS2 例如Adobe-CNS1-UCS2，
+每个CMap输入字符映射范围有begincodespacerange指定， 原字符可以是1个字节，也可以式2个字节，如下：
+2 begincodespacerange
+	<00>   <80>
+	<8140> <FEFE>
+endcodespacerange
+
+
+- IdentityCMap: A special case of CMap, where the _map array implicitly has a length of 65536 and each element is equal to its index.
 
 http://www.hunterpro.net/?p=293
 

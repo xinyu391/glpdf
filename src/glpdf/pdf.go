@@ -17,6 +17,7 @@ type Pdf struct {
 }
 
 type Name string
+type HexString string
 type Stream struct {
 	offset int64
 	stream []byte
@@ -41,6 +42,14 @@ type PdfObj struct {
 	ref    ObjRef
 	data   DataType
 	stream *Stream
+}
+
+func (obj *PdfObj) valueOf(key Name) DataType {
+	return obj.data.(Dict)[key]
+}
+func (obj *PdfObj) getRefId(key Name) (id int32) {
+	return obj.data.(Dict)[key].(ObjRef).id
+
 }
 
 func Open(file string) (pdf *Pdf, err error) {
@@ -94,7 +103,7 @@ func Open(file string) (pdf *Pdf, err error) {
 		}
 
 	}
-	parseDoc(pdf)
+	loadDoc(pdf)
 	return pdf, nil
 }
 

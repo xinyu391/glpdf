@@ -1,5 +1,9 @@
 package glpdf
 
+import (
+	"fmt"
+)
+
 /**
 BT BeginText
 ET EndText
@@ -46,3 +50,38 @@ K  SetStrokingDeviceCMYKColor
 G  SetStrokingDeviceGrayColor
 RG SetStrokingDeviceRGBColor
 */
+type Operator interface {
+	Name() string
+	Process()
+	Args() []DataType
+}
+
+type BaseOp struct {
+	name string
+	args []DataType
+}
+
+func NewOp(name string, args []DataType) (op *BaseOp) {
+	op = &BaseOp{name, args}
+	return
+}
+func (op *BaseOp) Name() string {
+	return op.name
+}
+func (op *BaseOp) Args() []DataType {
+	return op.args
+}
+func (op *BaseOp) Process() {
+
+}
+func (op *BaseOp) String() string {
+	return fmt.Sprint("{", op.name, " : ", op.args, "}")
+
+}
+
+func (op *BaseOp) addArg(arg DataType) {
+	op.args = append(op.args, arg)
+}
+func (op *BaseOp) setName(str string) {
+	op.name = str
+}

@@ -48,6 +48,7 @@ type Token struct {
 	buf  string // str []byte
 	n    int32
 	r    float32
+	hex  bool
 }
 
 func (t *Token) is(code ...int) bool {
@@ -57,6 +58,25 @@ func (t *Token) is(code ...int) bool {
 		}
 	}
 	return false
+}
+func (t *Token) value() (d DataType) {
+	switch t.code {
+	case TK_INT:
+		d = t.n
+	case TK_REAL:
+		d = t.r
+	case TK_BOOL_FALSE:
+		d = false
+	case TK_BOOL_TRUE:
+		d = true
+	case TK_NAME:
+		d = t.buf
+	case TK_STRING:
+		d = t.buf
+	default:
+
+	}
+	return
 }
 func (t *Token) isKeyword(str string) (ok bool) {
 	return t.code == TK_KEYWORD && t.buf == str
@@ -135,6 +155,7 @@ func lexer(fr RandomReader) (tk *Token) {
 				fr.ReadByte()
 				tk.buf, _ = parseString2(fr)
 				tk.code = TK_STRING
+				tk.hex = true
 				return
 			}
 
@@ -621,12 +642,12 @@ func parseString2(fr RandomReader) (str string, err error) {
 	if e != nil {
 		return "", e
 	}
-	//	size := len(buf) / 2
-	//	out := make([]byte, size)
-	//	for i := 0; i < size; i++ {
-	//		out[i] = hexTobyte(buf[i*2 : i*2+2])
-	//	}
-	str = string(buf[:len(buf)-1])
+	size := len(buf) / 2
+	out := make([]byte, size)
+	for i := 0; i < size; i++ { // 2个字符 转换成一个byte :'1f'->0x1f
+		out[i] = hexToByte(buf[i*2 : i*2+2])
+	}
+	str = string(out)
 	return
 }
 func parseString1(fr RandomReader) (str string, err error) {
