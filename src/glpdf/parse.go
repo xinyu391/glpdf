@@ -628,7 +628,7 @@ func parseName(fr RandomReader) (name string, err error) {
 			break
 		}
 		if c == '#' {
-			panic("# in name ??")
+			//	panic("# in name ??")
 		}
 		c, err = fr.ReadByte()
 

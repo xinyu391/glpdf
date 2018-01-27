@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	pdf, err := glpdf.Open("sample.pdf")
+	pdf, err := glpdf.Open("p1.pdf")
 	fmt.Println("pdf ", pdf, err)
 	//	num := pdf.GetPageNum()
 	//	page := pdf.GetPage(num - 1)

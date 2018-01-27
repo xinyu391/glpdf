@@ -23,3 +23,7 @@ func logw(a ...interface{}) {
 	b = append(b, a...)
 	fmt.Println(b...)
 }
+
+func logl(a ...interface{}) {
+	fmt.Print(a...)
+}
