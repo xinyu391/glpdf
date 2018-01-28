@@ -1,5 +1,9 @@
 package glpdf
 
+import (
+	"fmt"
+)
+
 type Doc struct {
 	pages []*Page
 	count int32
@@ -34,6 +38,32 @@ func newPage() (page *Page) {
 
 	return
 }
+
+func (f *Font) unicodeStr(pdf *Pdf, str string) (out string) {
+	if f.toUnicode != nil {
+		unicode, _ := f.toUnicode.Lookup2([]byte(str))
+		out = unicodeToStr(unicode)
+	} else if f.encoding != "" {
+		switch f.encoding {
+		case "WinAnsiEncoding":
+			out = ""
+		case "Identity-H":
+			// 查找 DescendantFonts中的CIDSystemInfo，组合出一个cmap文件名称
+			desc := pdf.objMap[f.descendantFonts.id]
+
+			dict := desc.data.(Dict)
+			cidInfo := dict["CIDSystemInfo"].(Dict)
+			cmapName := fmt.Sprintf("%s-%s-UCS2", cidInfo["Registry"].(string), cidInfo["Ordering"].(string))
+			cmap := system_cmap[string(cmapName)]
+			if cmap != nil {
+				unicode, _ := cmap.Lookup2([]byte(str))
+				out = unicodeToStr(unicode)
+			}
+		case "Identity-V":
+		}
+	}
+	return
+}
 func loadDoc(pdf *Pdf) {
 	root := pdf.objMap[pdf.root]
 	pagesid := root.getRefId("Pages")
@@ -50,8 +80,8 @@ func loadDoc(pdf *Pdf) {
 func loadPages(pdf *Pdf, doc *Doc, pagesObj *PdfObj) {
 	pageAry := pagesObj.valueOf("Kids").(Array)
 
-	for i, p := range pageAry {
-		log("parse ", i+1, "page")
+	for _, p := range pageAry {
+		log("parse ", len(doc.pages), "page")
 		id := p.(ObjRef).id
 		obj := pdf.objMap[id]
 		tp := obj.valueOf("Type").(Name)
@@ -91,18 +121,19 @@ func loadPage(pdf *Pdf, doc *Doc, pageObj *PdfObj) (page *Page) {
 		res = loadResource(pdf, doc, dict)
 	}
 	page.res = res
+	loge("fonts ", res.fonts)
 
 	content := pageObj.valueOf("Contents")
 	if ref, ok := content.(ObjRef); ok {
 		contentId := ref.id
 		content := pdf.objMap[contentId].stream.stream
-		parsePageContent(page, content)
+		parsePageContent(pdf, page, content, contentId)
 	} else { // is array
 		ary := content.(Array)
 		for _, v := range ary {
 			contentId := v.(ObjRef).id
 			content := pdf.objMap[contentId].stream.stream
-			parsePageContent(page, content)
+			parsePageContent(pdf, page, content, contentId)
 		}
 	}
 
@@ -116,7 +147,7 @@ func loadResource(pdf *Pdf, doc *Doc, dict Dict) (res *Resource) {
 		fid := v.(ObjRef).id
 		if doc.fonts[k] == nil {
 			fobj := pdf.objMap[fid]
-			font := loadFont(pdf, fobj)
+			font := loadFont(pdf, string(k), fobj)
 			res.fonts[k] = font
 			doc.fonts[k] = font
 		} else {
@@ -127,13 +158,17 @@ func loadResource(pdf *Pdf, doc *Doc, dict Dict) (res *Resource) {
 }
 
 //加载字体
-func loadFont(pdf *Pdf, obj *PdfObj) (font *Font) {
+func loadFont(pdf *Pdf, name string, obj *PdfObj) (font *Font) {
 	dict := obj.data.(Dict)
 
 	//<</BaseFont /HYUHQC+DroidSansFallback /DescendantFonts [10 0 R] /Encoding /Identity-H /Subtype /Type0 /ToUnicode 9 0 R /Type /Font>>
 	font = new(Font)
+	loge("xxxxxxxxxxxx load font ", name, obj)
+	font.name = name
 	font.baseFont, _ = dict["BaseFont"].(Name)
-	font.descendantFonts, _ = dict["DescendantFonts"].(ObjRef)
+	if ary, ok := dict["DescendantFonts"].(Array); ok {
+		font.descendantFonts = ary[0].(ObjRef)
+	}
 	font.encoding, _ = dict["Encoding"].(Name)
 	font.subType = dict["Subtype"].(Name)
 	if r, ok := dict["ToUnicode"].(ObjRef); ok {
@@ -144,8 +179,11 @@ func loadFont(pdf *Pdf, obj *PdfObj) (font *Font) {
 }
 
 // 解析 ps绘制命令，
-func parsePageContent(page *Page, stream []byte) {
-	loge("parsePageContent", string(stream))
+func parsePageContent(pdf *Pdf, page *Page, stream []byte, id int32) {
+	if id == 104 {
+		loge("parsePageContent", string(stream))
+	}
+	//writeToFile(stream, fmt.Sprintf("%d.txt", id))
 	br := newBytesReader(stream)
 	ops := make([]Operator, 0, 128)
 	args := make([]DataType, 0, 4)
@@ -188,9 +226,9 @@ func parsePageContent(page *Page, stream []byte) {
 		case "Tj":
 			str := op.Args()[0].(string)
 			f := page.res.fonts[Name(font)]
-			if f != nil && f.toUnicode != nil {
-				unicode, _ := f.toUnicode.Lookup2([]byte(str))
-				loge(unicodeToStr(unicode))
+			if f != nil {
+				s := f.unicodeStr(pdf, str)
+				logl(s)
 			} else {
 				loge("draw ", str, " with font ", font)
 			}

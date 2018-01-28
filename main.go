@@ -8,13 +8,15 @@ import (
 )
 
 func main() {
-	pdf, err := glpdf.Open("p1.pdf")
+	pdf, err := glpdf.Open("sample2.pdf")
 	fmt.Println("pdf ", pdf, err)
+
 	//	num := pdf.GetPageNum()
 	//	page := pdf.GetPage(num - 1)
 	//	page.Draw()
-	test()
-	loge("xxxxx", "dd")
+
+	//	glpdf.LoadSystemCmap()
+	//	test()
 }
 func loge(a ...interface{}) {
 	b := append([]interface{}{}, "[E]")

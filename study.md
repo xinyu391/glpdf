@@ -30,8 +30,18 @@ http://www.hunterpro.net/?p=293
 (2) 如果找不到对应的Unicode字码，便依输入字码到Encoding信息里取得该字码对应的字符名称
 (3) 依照取得的字符名称转成对应的Unicode字码（不一定能转换，此时表示显示出来的字没有对应的Unicode字码，或是writer并未附相关的Unicode字码转换信息）
 
+CIDSystemInfo里记录了该字型使用的字集，而每种字集的CID都是固定的，因此只要知道这个字集，即可将Encoding CMap转出来的CID再转成Unicode字码， 称后面加-UCS2的就是了，例如Adobe-CNS1-UCS2	
+
+
+没有找到ToUnicode的话，就根据CIDSystemInfo中的 /Registry-/Ordering-/Supplement找到 charCode 转CID的cmap文件。
+然后再找到Adobe-xxx-UCS2文件， 查找CID对应的unicode 码。
+
+
 #### CMapy有两种类型
 + ToUnicode Map
 用于char code查找对应unicode，文件中包含 beginbfrange,beginbfchar
 + encoding Map
 用于char code查找cid，文件中包含 begincidrange，begincidchar
+
+++http://bbs.csdn.net/topics/340109816	
+Identity-H和Identity-V，这两个都是直接将2 byte输入字码视为CID处理

@@ -1,6 +1,7 @@
 package glpdf
 
 import (
+	"io/ioutil"
 	"strconv"
 )
 
@@ -123,4 +124,8 @@ func hexToByte(b []byte) byte {
 func unicodeToStr(unicode []int32) (str string) {
 	str = string(unicode)
 	return
+}
+
+func writeToFile(data []byte, name string) {
+	ioutil.WriteFile(name, data, 0666)
 }

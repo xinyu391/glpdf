@@ -51,7 +51,9 @@ func (obj *PdfObj) getRefId(key Name) (id int32) {
 	return obj.data.(Dict)[key].(ObjRef).id
 
 }
-
+func init() {
+	loadSystemCmap()
+}
 func Open(file string) (pdf *Pdf, err error) {
 	pdf = new(Pdf)
 	f, err := os.Open(file)
