@@ -31,6 +31,8 @@ const (
 	TK_NULL
 	TK_STARTXREF
 	TK_XREF
+	TK_BEGIN_BRACE
+	TK_END_BRACE
 )
 const (
 	EOF = 0xff
@@ -41,6 +43,7 @@ const (
 	NAME_NAME        = "Name"
 	NAME_FILTER      = Name("Filter")
 	NAME_FlateDecode = Name("FlateDecode")
+	NAME_DECODEPARMS = Name("DecodeParms")
 )
 
 type Token struct {
@@ -82,7 +85,7 @@ func (t *Token) isKeyword(str string) (ok bool) {
 	return t.code == TK_KEYWORD && t.buf == str
 }
 func (t *Token) str() (str string, ok bool) {
-	if t.code == TK_STRING {
+	if t.code == TK_STRING || t.code == TK_NAME || t.code == TK_KEYWORD {
 		return t.buf, true
 	} else {
 		return "", false
@@ -106,21 +109,23 @@ func lexer(fr RandomReader) (tk *Token) {
 	tk.code = TK_NULL
 
 	for {
-		c1, err := fr.Peek(2)
+		c, err := fr.ReadByte()
 		if err == io.EOF {
 			tk.code = TK_EOF
 			return
 		}
-		c := c1[0]
-		logd("\tpeek2 ", c1, isWhite(c))
+		//c := c1[0]
+		//		logd("\tpeek2 ", c1, isWhite(c))
 		switch {
 		case isWhite(c):
+			fr.UnreadByte()
 			skipWhite(fr)
-			logd("\tskipwhite")
+			//			logd("\tskipwhite")
 			continue
 		case isNumber(c):
+			fr.UnreadByte()
 			tk.code, tk.n, tk.r, _ = parseNumber(fr)
-			logd("\tisNumber", tk)
+			//			logd("\tisNumber", tk)
 			return
 		}
 		switch c {
@@ -130,29 +135,25 @@ func lexer(fr RandomReader) (tk *Token) {
 		case '%':
 			skipComment(fr)
 		case '/':
-			fr.ReadByte()
 			tk.buf, _ = parseName(fr)
 			tk.code = TK_NAME
-			logd("\tisName", tk)
+			//			logd("\tisName", tk)
 			return
 		case '(':
-			fr.ReadByte()
 			tk.buf, _ = parseString1(fr)
 			tk.code = TK_STRING
-			logd("\tisString", tk)
+			//			logd("\tisString xxxxxxxxxxxxxxx ", tk.buf)
 			return
 		case ')':
 			logw("\twarning lexical error :unexpected ')'")
 		case '<':
-
-			if c1[1] == '<' {
-				fr.ReadByte()
-				fr.ReadByte()
+			c1, _ := fr.ReadByte()
+			if c1 == '<' {
 				tk.code = TK_BEGIN_DICT
-				logd("\tfind begin dict")
+				//				logd("\tfind begin dict")
 				return
 			} else { //string
-				fr.ReadByte()
+				fr.UnreadByte()
 				tk.buf, _ = parseString2(fr)
 				tk.code = TK_STRING
 				tk.hex = true
@@ -160,33 +161,36 @@ func lexer(fr RandomReader) (tk *Token) {
 			}
 
 		case '>':
-			if c1[1] == '>' {
-				fr.ReadByte()
-				fr.ReadByte()
+			c1, _ := fr.ReadByte()
+			if c1 == '>' {
 				tk.code = TK_END_DICT
 				return
 			} else {
-				logd("\terror ")
+				//				logd("\terror ")
+				fr.UnreadByte()
 			}
-			fr.ReadByte()
 		case '[':
-			fr.ReadByte()
+
 			tk.code = TK_BEGIN_ARRAY
 			return
 		case ']':
-			fr.ReadByte()
+
 			tk.code = TK_END_ARRAY
 			return
 		case '{':
 			panic("{{{{{{")
+			tk.code = TK_BEGIN_BRACE
+			return
 		case '}':
-			panic("}}}}")
+			panic("}}}}}")
+			tk.code = TK_BEGIN_BRACE
+			return
 
 		default:
+			fr.UnreadByte()
 			tk.buf, _ = parseName(fr)
-
 			tk.code = typeByName(tk.buf)
-			logd("\tparseNmae", tk)
+			//			logd("\tparseNmae", tk)
 			return
 		}
 
@@ -437,18 +441,20 @@ func parseStream(fr RandomReader, pdf *Pdf, obj *PdfObj) {
 	log(length, "read ", nn)
 	// 根据filter 解密
 	filter := dict[NAME_FILTER]
+	param := dict[NAME_DECODEPARMS]
+	var err error
 	if filter != nil {
-		var param FilterParam
-		if n, ok := filter.(Name); ok {
-			param = FilterParam{n}
+		if name, ok := filter.(Name); ok {
+			buf, err = decode(buf, name, param)
+			if err != nil {
+				loge("decode failed with object ", obj.ref.id, err)
+			}
+		} else {
+			//array TODO
+			//			for k, v := range filter {
+			//buf, err := decode(buf, name, param)
+			//			}
 		}
-		out, err := decode(buf, param)
-		if err == nil {
-			buf = out
-		}
-		//		if len(out) < 1000 || obj.ref.id == 7 {
-		//			log("stream ", string(out))
-		//		}
 	}
 	stream.load = true
 	stream.stream = buf
@@ -458,9 +464,9 @@ func parseDict(fr RandomReader) (dict Dict, err error) {
 	finish := false
 	var key Name
 	for {
-		token, str, n, r := peek(fr)
+		token, str, n, _ := peek(fr)
 	SKIP:
-		log("peek for key:", token, str, n, r)
+		//log("peek for key:", token, str, n, r)
 		if token == TK_END_DICT {
 			break
 		}
@@ -469,8 +475,8 @@ func parseDict(fr RandomReader) (dict Dict, err error) {
 		}
 		key = Name(str)
 		// read value
-		token, str, n, r = peek(fr)
-		log("peek for val:", token, str, n, r)
+		token, str, n, _ = peek(fr)
+		//log("peek for val:", token, str, n, r)
 		switch token {
 		case TK_NAME:
 			dict[key] = Name(str)

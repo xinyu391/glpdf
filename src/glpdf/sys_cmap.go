@@ -25,7 +25,7 @@ func loadSystemCmap() {
 	}
 	system_cmap = make(map[string]*Cmap)
 	// 反序列化
-	cmap, err := loadCmapFile("/home/xinyu391/proj/mupdf-1.12.0-source/resources/cmaps/cjk/Adobe-Korea1-UCS2")
+	cmap, err := loadCmapFile("/home/jesse/data/mupdf-1.12.0-source/resources/cmaps/cjk/Adobe-Korea1-UCS2")
 	if err != nil {
 		return
 	}
@@ -34,7 +34,7 @@ func loadSystemCmap() {
 	log("loadSystemCmap finish ")
 }
 func LoadSystemCmap() {
-	cmap, err := loadCmapFile("/home/xinyu391/proj/mupdf-1.12.0-source/resources/cmaps/extra/Adobe-Korea1-2")
+	cmap, err := loadCmapFile("/home/jesse/data/mupdf-1.12.0-source/resources/cmaps/extra/Adobe-Korea1-2")
 	if err != nil {
 		return
 	}

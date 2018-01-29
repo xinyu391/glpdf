@@ -1,22 +1,50 @@
 package main
 
 import (
+	"bytes"
+	"compress/zlib"
 	"fmt"
 	"glpdf"
+	"io/ioutil"
 	"strconv"
 	"unicode/utf16"
 )
 
 func main() {
-	pdf, err := glpdf.Open("sample2.pdf")
+	pdf, err := glpdf.Open("/home/jesse/tmp/2666_Private-Card-V6UpdateFinal.pdf")
 	fmt.Println("pdf ", pdf, err)
 
-	//	num := pdf.GetPageNum()
+	num := pdf.PageNum()
+	fmt.Println("pdf num ", num)
+
 	//	page := pdf.GetPage(num - 1)
 	//	page.Draw()
 
 	//	glpdf.LoadSystemCmap()
 	//	test()
+	//	testdeflate()
+}
+func testdeflate() {
+	data, err := ioutil.ReadFile("ErrHeader.bin")
+	if err != nil {
+		return
+	}
+	loge("size ", len(data), 1254, data[:12])
+
+	var head = []byte{0x1f, 0x8b}
+	head = append(head, data[:]...)
+	loge(head[:12])
+
+	r := bytes.NewBuffer(data)
+
+	zr, err := zlib.NewReader(r)
+	if err != nil {
+		loge("err ", err)
+		return
+	}
+	fin, err := ioutil.ReadAll(zr)
+	loge("final ", err, string(fin))
+	zr.Close()
 }
 func loge(a ...interface{}) {
 	b := append([]interface{}{}, "[E]")

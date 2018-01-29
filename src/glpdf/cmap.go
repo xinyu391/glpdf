@@ -11,7 +11,7 @@ type CmapManager struct {
 }
 type Cmap struct {
 	Name        string
-	Wmode       int
+	Wmode       int32
 	UsecmapName string
 	Codespace   []codeSpace
 	Cmap        []cid2uinc
@@ -148,32 +148,36 @@ func loadCmapFile(path string) (cmap *Cmap, err error) {
 func loadCmap(fr RandomReader) (cmap *Cmap, err error) {
 	cmap = NewCmap()
 	key := ""
+	var tk *Token
 	for {
-		tk, str, _, _ := peek(fr)
-		if tk == TK_EOF {
+		tk = lexer(fr)
+		if tk.is(TK_EOF) {
 			break
 		}
 		//		log(str)
-		if tk == TK_NAME {
+
+		if tk.is(TK_NAME) {
+			str, _ := tk.str()
 			switch str {
 			case "CMapName":
-				tk, str, _, _ = peek(fr)
-				if tk == TK_NAME {
-					cmap.Name = str
+				tk = lexer(fr)
+				if tk.is(TK_NAME) {
+					cmap.Name, _ = tk.str()
 				} else {
 					logw("expected Name after CMapName in cmap")
 				}
 			case "WMode":
-				tk, _, n, _ := peek(fr)
-				if tk == TK_INT {
-					cmap.Wmode = int(n)
+				tk = lexer(fr)
+				if tk.is(TK_INT) {
+					cmap.Wmode, _ = tk.num()
 				} else {
 					logw("expected number after CMapName in cmap")
 				}
 			default:
-				key = str
+				key, _ = tk.str()
 			}
-		} else if tk == TK_KEYWORD {
+		} else if tk.is(TK_KEYWORD) {
+			str, _ := tk.str()
 			switch str {
 			case "endcmp":
 			case "usecmap":
@@ -282,7 +286,13 @@ func parseBfRange(fr RandomReader, cmap *Cmap) (err error) {
 			ary, _ := parseArray(fr)
 			dst := make([]int32, len(ary))
 			for k, v := range ary {
-				dst[k] = v.(int32)
+				switch v.(type) {
+				case int32:
+					dst[k] = v.(int32)
+				case string:
+					dst[k] = hexStrToInt(v.(string))
+				}
+
 			}
 			cmap.mapBfRangeToArray(low, high, dst)
 		}

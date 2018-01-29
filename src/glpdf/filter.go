@@ -10,7 +10,7 @@ type FilterParam struct {
 	filter Name
 }
 
-func decode(buf []byte, param FilterParam) (out []byte, err error) {
+func decode(buf []byte, name Name, param DataType) (out []byte, err error) {
 	r := bytes.NewReader(buf)
 
 	gr, err := zlib.NewReader(r)

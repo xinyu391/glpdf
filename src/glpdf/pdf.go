@@ -14,6 +14,7 @@ type Pdf struct {
 	root       int32
 	info       int32
 	size       int32
+	doc        *Doc
 }
 
 type Name string
@@ -88,6 +89,7 @@ func Open(file string) (pdf *Pdf, err error) {
 	readTrailer(pdf, fr)
 
 	pdf.objMap = make(map[int32]*PdfObj)
+	// 读取所有的obj
 	for k, v := range objRefMap {
 		log("read obj ", k)
 		if v.used {
@@ -96,6 +98,7 @@ func Open(file string) (pdf *Pdf, err error) {
 			log(obj)
 		}
 	}
+	// 加载所有的stream
 	for k, v := range pdf.objMap {
 		log("v.data", k, v.data)
 		if v.stream != nil && v.stream.load == false {
@@ -108,11 +111,11 @@ func Open(file string) (pdf *Pdf, err error) {
 	loadDoc(pdf)
 	return pdf, nil
 }
+func (pdf *Pdf) PageNum() int32 {
+	return pdf.doc.count
 
-func (pdf *Pdf) GetPageNum() int {
-	return 0
 }
-func (pdf *Pdf) GetPage(num int) *Page {
+func (pdf *Pdf) Page(num int) *Page {
 	return nil
 }
 

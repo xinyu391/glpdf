@@ -24,6 +24,11 @@ type Font struct {
 	subType         Name
 	toUnicode       *Cmap
 }
+
+func (f *Font) String() string {
+	return fmt.Sprint("Font:", f.name, " BaseName: ", f.baseFont, " SubType: ", f.subType, " ToUnicode: ", f.toUnicode)
+}
+
 type Resource struct {
 	fonts map[Name]*Font
 }
@@ -64,6 +69,8 @@ func (f *Font) unicodeStr(pdf *Pdf, str string) (out string) {
 	}
 	return
 }
+
+// 解析所有的Page
 func loadDoc(pdf *Pdf) {
 	root := pdf.objMap[pdf.root]
 	pagesid := root.getRefId("Pages")
@@ -75,13 +82,14 @@ func loadDoc(pdf *Pdf) {
 		loadPages(pdf, doc, pagesObj)
 		doc.count = pagesObj.valueOf("Count").(int32)
 	}
-
+	pdf.doc = doc
 }
+
 func loadPages(pdf *Pdf, doc *Doc, pagesObj *PdfObj) {
 	pageAry := pagesObj.valueOf("Kids").(Array)
 
 	for _, p := range pageAry {
-		log("parse ", len(doc.pages), "page")
+		//		log("parse ", len(doc.pages), "page")
 		id := p.(ObjRef).id
 		obj := pdf.objMap[id]
 		tp := obj.valueOf("Type").(Name)
@@ -90,6 +98,14 @@ func loadPages(pdf *Pdf, doc *Doc, pagesObj *PdfObj) {
 		} else {
 			page := loadPage(pdf, doc, obj)
 			doc.pages = append(doc.pages, page)
+			loge("    PAGE ", len(doc.pages), ":")
+			loge("    \t Resource ", page.res.fonts)
+			size := len(page.content)
+			if size > 10 {
+				size = 10
+			}
+			loge("    \t Content ", page.content[:size])
+
 		}
 
 	}
@@ -163,7 +179,7 @@ func loadFont(pdf *Pdf, name string, obj *PdfObj) (font *Font) {
 
 	//<</BaseFont /HYUHQC+DroidSansFallback /DescendantFonts [10 0 R] /Encoding /Identity-H /Subtype /Type0 /ToUnicode 9 0 R /Type /Font>>
 	font = new(Font)
-	loge("xxxxxxxxxxxx load font ", name, obj)
+	//	loge("xxxxxxxxxxxx load font ", name, obj)
 	font.name = name
 	font.baseFont, _ = dict["BaseFont"].(Name)
 	if ary, ok := dict["DescendantFonts"].(Array); ok {
@@ -180,10 +196,8 @@ func loadFont(pdf *Pdf, name string, obj *PdfObj) (font *Font) {
 
 // 解析 ps绘制命令，
 func parsePageContent(pdf *Pdf, page *Page, stream []byte, id int32) {
-	if id == 104 {
-		loge("parsePageContent", string(stream))
-	}
-	//writeToFile(stream, fmt.Sprintf("%d.txt", id))
+
+	//	writeToFile(stream, fmt.Sprintf("%d.txt", id))
 	br := newBytesReader(stream)
 	ops := make([]Operator, 0, 128)
 	args := make([]DataType, 0, 4)
@@ -204,6 +218,8 @@ func parsePageContent(pdf *Pdf, page *Page, stream []byte, id int32) {
 				log(err, ary)
 			}
 			args = append(args, ary)
+		case TK_BEGIN_BRACE:
+		case TK_END_BRACE:
 		default:
 			args = append(args, tk.value())
 		}
@@ -229,8 +245,10 @@ func parsePageContent(pdf *Pdf, page *Page, stream []byte, id int32) {
 			if f != nil {
 				s := f.unicodeStr(pdf, str)
 				logl(s)
+				// TODO save content str
+				page.content = s
 			} else {
-				loge("draw ", str, " with font ", font)
+				//				loge("draw ", str, " with font ", font)
 			}
 		case "TJ":
 			strAry := op.Args()[0].(Array)
@@ -239,11 +257,13 @@ func parsePageContent(pdf *Pdf, page *Page, stream []byte, id int32) {
 					logl(str)
 				}
 			}
-			logl("\n")
+
 		default:
 		}
 		if bt {
 
 		}
 	}
+
+	logl("\n")
 }
