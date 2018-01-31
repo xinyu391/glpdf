@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	pdf, err := glpdf.Open("/home/jesse/tmp/2666_Private-Card-V6UpdateFinal.pdf")
+	pdf, err := glpdf.Open("sample2.pdf")
 	fmt.Println("pdf ", pdf, err)
 
 	num := pdf.PageNum()

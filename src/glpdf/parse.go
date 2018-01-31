@@ -411,12 +411,7 @@ func markStream(fr RandomReader) (stream *Stream, err error) {
 
 	return
 }
-
 func parseStream(fr RandomReader, pdf *Pdf, obj *PdfObj) {
-	stream := obj.stream
-	if stream.offset <= 0 {
-		return
-	}
 	var length int32 = 0
 	var dict Dict
 	var ok bool
@@ -435,6 +430,14 @@ func parseStream(fr RandomReader, pdf *Pdf, obj *PdfObj) {
 		log("length is wrontg :", length)
 		return
 	}
+	parseStreamWithLength(fr, obj, length)
+}
+func parseStreamWithLength(fr RandomReader, obj *PdfObj, length int32) {
+	stream := obj.stream
+	if stream.offset <= 0 {
+		return
+	}
+	dict, _ := obj.data.(Dict)
 	fr.Seek(stream.offset, os.SEEK_SET)
 	buf := make([]byte, length)
 	nn, _ := fr.Read(buf)

@@ -8,13 +8,12 @@ import (
 )
 
 type Pdf struct {
-	version    string
-	xrefoffset int32
-	objMap     map[int32]*PdfObj
-	root       int32
-	info       int32
-	size       int32
-	doc        *Doc
+	version string
+	objMap  map[int32]*PdfObj
+	root    int32
+	info    int32
+	size    int32
+	doc     *Doc
 }
 
 type Name string
@@ -77,11 +76,11 @@ func Open(file string) (pdf *Pdf, err error) {
 		return
 	}
 
-	pdf.xrefoffset = offset
-
 	var objRefMap map[int32]*pdfObjRef
 	objRefMap, err = readXrefTable(fr, offset)
-
+	if err != nil && err.Error() == "Not find xref Table" {
+		log("try to load all obj from front")
+	}
 	if err != nil {
 		log("parse error:", err)
 		return nil, err
@@ -141,56 +140,74 @@ func (pdf *Pdf) Page(num int) *Page {
 //	}
 //	return
 //}
-
+func readXrefObj(fr RandomReader) (objMap map[int32]*pdfObjRef, err error) {
+	obj, err := parseObject(fr)
+	if obj.stream != nil && obj.stream.load == false {
+		var length int32 = 0
+		var dict Dict
+		var ok bool
+		if dict, ok = obj.data.(Dict); ok {
+			dt := dict[NAME_LENGTH]
+			length = dt.(int32)
+		}
+		parseStreamWithLength(fr, obj, length)
+		log("parseStream obj", obj.stream.stream)
+	}
+	log(obj)
+	return
+}
 func readXrefTable(fr RandomReader, offset int32) (objMap map[int32]*pdfObjRef, err error) {
 	fr.Seek(int64(offset), os.SEEK_SET)
-
-	l, err := fr.ReadString('\n')
-	if err != nil {
-		return
-	}
-	l = strings.TrimSpace(l)
-	if l != "xref" {
-		return objMap, errors.New("Not find xref Table")
-	}
-
-	objMap = make(map[int32]*pdfObjRef)
-	count := 0
-	id := 0
-	for {
-		l, err = fr.ReadString('\n')
-		if err != nil {
-			break
-		}
-		l = strings.TrimSpace(l)
-		log("line ", l)
-		tmp := strings.Split(l, " ")
-		if len(tmp) == 2 { // 该段的起始号，和数量
-			log(" size")
-			id, _ = strconv.Atoi(tmp[0])
-			count, _ = strconv.Atoi(tmp[1])
-		} else {
-
-			offset, _ := strconv.Atoi(tmp[0])
-			//			times, _ := strconv.Atoi(tmp[1])
-			used := true
-			if tmp[2] == "f" {
-				used = false
+	tk := lexer(fr)
+	loge("tk ", tk)
+	if tk.code == TK_XREF {
+		objMap = make(map[int32]*pdfObjRef)
+		count := 0
+		id := 0
+		for {
+			l, err := fr.ReadString('\n')
+			if err != nil {
+				break
 			}
-			objMap[int32(id)] = &pdfObjRef{offset, used}
-			log(objMap[int32(id)])
-			id++
-			count--
+			l = strings.TrimSpace(l)
+			log("line ", l)
+			if l == "" {
+				continue
+			}
+			tmp := strings.Split(l, " ")
+			if len(tmp) == 2 { // 该段的起始号，和数量
+				log(" size")
+				id, _ = strconv.Atoi(tmp[0])
+				count, _ = strconv.Atoi(tmp[1])
+			} else {
+
+				offset, _ := strconv.Atoi(tmp[0])
+				//			times, _ := strconv.Atoi(tmp[1])
+				used := true
+				if tmp[2] == "f" {
+					used = false
+				}
+				objMap[int32(id)] = &pdfObjRef{offset, used}
+				log(objMap[int32(id)])
+				id++
+				count--
+
+			}
+
+			if count == 0 { // 将f重新定位到已读的位置(bufio.Reader会缓存一些）
+
+				break
+			}
 
 		}
+		return
+	} else if tk.code == TK_INT { //read object
+		fr.Seek(int64(offset), os.SEEK_SET)
 
-		if count == 0 { // 将f重新定位到已读的位置(bufio.Reader会缓存一些）
-
-			break
-		}
-
+		return readXrefObj(fr)
+	} else {
+		return nil, errors.New("malformed PDF: Not find xref data")
 	}
-	return
 }
 func readVersion(fr RandomReader) (version string) {
 	buf := make([]byte, 32)
