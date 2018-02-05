@@ -97,7 +97,7 @@ func Open(file string) (pdf *Pdf, err error) {
 			log(obj)
 		}
 	}
-	// 加载所有的stream
+	// 加载所有的stream(读到内存，并且进行flate解码)
 	for k, v := range pdf.objMap {
 		log("v.data", k, v.data)
 		if v.stream != nil && v.stream.load == false {

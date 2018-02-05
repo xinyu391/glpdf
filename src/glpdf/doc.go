@@ -10,7 +10,7 @@ type Doc struct {
 	fonts map[Name]*Font
 }
 type Page struct {
-	content string
+	content []rune
 	//	fonts   map[Name]*Font
 	res    *Resource
 	width  float32
@@ -27,6 +27,9 @@ type Font struct {
 
 func (f *Font) String() string {
 	return fmt.Sprint("Font:", f.name, " BaseName: ", f.baseFont, " SubType: ", f.subType, " ToUnicode: ", f.toUnicode)
+}
+func (p *Page) String() string {
+	return fmt.Sprint("Page(", p.width, ",", p.height, ")", p.content)
 }
 
 type Resource struct {
@@ -104,7 +107,7 @@ func loadPages(pdf *Pdf, doc *Doc, pagesObj *PdfObj) {
 			if size > 10 {
 				size = 10
 			}
-			loge("    \t Content ", page.content[:size])
+			loge("    \t Content ", string(page.content))
 
 		}
 
@@ -246,7 +249,7 @@ func parsePageContent(pdf *Pdf, page *Page, stream []byte, id int32) {
 				s := f.unicodeStr(pdf, str)
 				logl(s)
 				// TODO save content str
-				page.content = s
+				page.content = append(page.content, []rune(s)...)
 			} else {
 				//				loge("draw ", str, " with font ", font)
 			}
