@@ -15,6 +15,13 @@ func hexStrToInt(str string) int32 {
 	return int32(i)
 }
 
+// 需求
+// Name解析中，遇到#xx 进行2位hex数字解析,  []byte -> uint32
+func hexToInt(bytes []byte) (uint32, error) {
+	i, err := strconv.ParseInt(string(bytes), 16, 32)
+	return uint32(i), err
+}
+
 // '12' ->12
 func strToInt(str string) int32 {
 	i, err := strconv.ParseInt(str, 10, 32)

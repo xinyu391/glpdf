@@ -625,22 +625,27 @@ func parseName(fr RandomReader) (name string, err error) {
 	rawBuf := make([]byte, 0, 128)
 	buf := bytes.NewBuffer(rawBuf)
 	var c byte
-	var c1 []byte
 	for {
-		c1, err = fr.Peek(1)
+		c, err = fr.ReadByte()
 		if err != nil {
 			return
 		}
-		c = c1[0]
+		//c = c1[0]
 
 		if isWhite(c) || isDelim(c) {
+			fr.UnreadByte()
 			break
 		}
-		if c == '#' {
-			//	panic("# in name ??")
+		if c == '#' { // two num (0~9,a~f)
+			c1, _ := fr.ReadByte()
+			c2, _ := fr.ReadByte()
+			var cc = []byte{c1, c2}
+			ct, err := hexToInt(cc)
+			if err != nil {
+				logw("there should be two hex char after # in Name.", err)
+			}
+			c = byte(ct)
 		}
-		c, err = fr.ReadByte()
-
 		buf.WriteByte(c)
 	}
 	name = buf.String()
@@ -691,12 +696,48 @@ func parseString1(fr RandomReader) (str string, err error) {
 				strBuf.WriteByte('\t')
 			case 'b':
 				strBuf.WriteByte('\b')
+			case 'f':
+				strBuf.WriteByte('\f')
 				//			case '(':
 				//				strBuf.WriteByte('(')
 				//			case ')':
 				//				strBuf.WriteByte(')')
-				//			case '\n':
-				//				strBuf.WriteByte('\n')
+			case '\n':
+			case '\r':
+				c1, _ := fr.ReadByte()
+				if c1 != '\n' {
+					fr.UnreadByte()
+				}
+			case '0':
+				fallthrough
+			case '1':
+				fallthrough
+			case '2':
+				fallthrough
+			case '3':
+				fallthrough
+			case '4':
+				fallthrough
+			case '5':
+				fallthrough
+			case '6':
+				fallthrough
+			case '7':
+				//读取最多三个（<8的）数字
+				c1, _ := fr.ReadByte()
+				oc := c - '0'
+				if isOctalNum(c1) {
+					oc = oc*8 + c1 - '0'
+					c2, _ := fr.ReadByte()
+					if isOctalNum(c2) {
+						oc = oc*8 + c2 - '0'
+					} else {
+						fr.UnreadByte()
+					}
+				} else {
+					fr.UnreadByte()
+				}
+				strBuf.WriteByte(byte(oc))
 			default:
 				strBuf.WriteByte(c)
 			}
@@ -709,6 +750,9 @@ func parseString1(fr RandomReader) (str string, err error) {
 	}
 	str = strBuf.String()
 	return
+}
+func isOctalNum(c byte) bool {
+	return c >= '0' && c <= '7'
 }
 func isNumber(c byte) bool {
 	if c == '+' || c == '-' || c == '.' || (c >= '0' && c <= '9') {
