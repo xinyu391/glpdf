@@ -8,7 +8,7 @@ import (
 
 func decode(buf []byte, name Name, param DataType) (out []byte, err error) {
 	if name == "FlateDecode" {
-		out, err = flateDecode(buf)
+		out, err = fliterFlate(buf)
 	}
 
 	if param != nil {
@@ -24,8 +24,16 @@ func decode(buf []byte, name Name, param DataType) (out []byte, err error) {
 	return
 }
 
+//ASCIIHexDecode  2HEX, '20' ->  ' '
+func filterASCIIHexDecode() {
+
+}
+func filterASCII85Decode() {
+
+}
+
 //zlib
-func flateDecode(buf []byte) (out []byte, err error) {
+func fliterFlate(buf []byte) (out []byte, err error) {
 	r := bytes.NewReader(buf)
 	gr, err := zlib.NewReader(r)
 	if err != nil {
