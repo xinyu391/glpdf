@@ -44,6 +44,10 @@ type PdfObj struct {
 	stream *Stream
 }
 
+//func (obj *PdfObj) String() string {
+//	return fmt.Sprintf("Obj", obj.ref.id, " ", obj.data, " ", obj.stream)
+//}
+
 func (obj *PdfObj) valueOf(key Name) DataType {
 	return obj.data.(Dict)[key]
 }
@@ -90,20 +94,20 @@ func Open(file string) (pdf *Pdf, err error) {
 	pdf.objMap = make(map[int32]*PdfObj)
 	// 读取所有的obj
 	for k, v := range objRefMap {
-		log("read obj ", k)
 		if v.used {
+			log("read obj ", k)
 			obj, _ := readObject(pdf, fr, v.offset)
 			pdf.objMap[k] = obj
 			log(obj)
 		}
 	}
 	// 加载所有的stream(读到内存，并且进行flate解码)
-	for k, v := range pdf.objMap {
-		log("v.data", k, v.data)
+	for _, v := range pdf.objMap {
+		//		log("v.data", k, v.data)
 		if v.stream != nil && v.stream.load == false {
 
 			parseStream(fr, pdf, v)
-			log("parseStream obj", k, len(v.stream.stream))
+			//			log("parseStream obj", k, len(v.stream.stream))
 		}
 
 	}
@@ -151,15 +155,15 @@ func readXrefObj(fr RandomReader) (objMap map[int32]*pdfObjRef, err error) {
 			length = dt.(int32)
 		}
 		parseStreamWithLength(fr, obj, length)
-		log("parseStream obj", obj.stream.stream)
+		//		log("parseStream obj", obj.stream.stream)
 	}
-	log(obj)
+	//	log(obj)
 	return
 }
 func readXrefTable(fr RandomReader, offset int32) (objMap map[int32]*pdfObjRef, err error) {
 	fr.Seek(int64(offset), os.SEEK_SET)
 	tk := lexer(fr)
-	loge("tk ", tk)
+	//	loge("tk ", tk)
 	if tk.code == TK_XREF {
 		objMap = make(map[int32]*pdfObjRef)
 		count := 0
@@ -170,13 +174,13 @@ func readXrefTable(fr RandomReader, offset int32) (objMap map[int32]*pdfObjRef, 
 				break
 			}
 			l = strings.TrimSpace(l)
-			log("line ", l)
+			//			log("line ", l)
 			if l == "" {
 				continue
 			}
 			tmp := strings.Split(l, " ")
 			if len(tmp) == 2 { // 该段的起始号，和数量
-				log(" size")
+				//				log(" size")
 				id, _ = strconv.Atoi(tmp[0])
 				count, _ = strconv.Atoi(tmp[1])
 			} else {
@@ -188,7 +192,7 @@ func readXrefTable(fr RandomReader, offset int32) (objMap map[int32]*pdfObjRef, 
 					used = false
 				}
 				objMap[int32(id)] = &pdfObjRef{offset, used}
-				log(objMap[int32(id)])
+				//				log(objMap[int32(id)])
 				id++
 				count--
 
@@ -230,7 +234,7 @@ func readTrailer(pdf *Pdf, fr RandomReader) error {
 		return errors.New("not find trailer")
 	}
 	tk = lexer(fr)
-	loge("code  ", tk.code)
+	//	loge("code  ", tk.code)
 	if tk.is(TK_BEGIN_DICT) {
 		dict, err := parseDict(fr)
 		if err == nil {

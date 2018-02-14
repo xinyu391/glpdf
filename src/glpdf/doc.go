@@ -26,7 +26,7 @@ type Font struct {
 }
 
 func (f *Font) String() string {
-	return fmt.Sprint("Font:", f.name, " BaseName: ", f.baseFont, " SubType: ", f.subType, " ToUnicode: ", f.toUnicode)
+	return fmt.Sprint("Font{", f.name, " BaseName: ", f.baseFont, " SubType: ", f.subType, " ToUnicode: ", f.toUnicode, "}")
 }
 func (p *Page) String() string {
 	return fmt.Sprint("Page(", p.width, ",", p.height, ")", p.content)
@@ -193,6 +193,8 @@ func loadFont(pdf *Pdf, name string, obj *PdfObj) (font *Font) {
 	if r, ok := dict["ToUnicode"].(ObjRef); ok {
 		stream := pdf.objMap[r.id].stream.stream
 		font.toUnicode, _ = LoadCmapBytes(stream)
+	} else {
+		loge("")
 	}
 	return
 }

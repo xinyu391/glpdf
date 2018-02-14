@@ -18,6 +18,7 @@ func decode(buf []byte, name Name, param DataType) (out []byte, err error) {
 		if pre != nil {
 			c := col.(int32)
 			p := pre.(int32)
+			log(param)
 			out, err = pngFilter(out, int(c), int(p), 1, 8)
 		}
 	}
@@ -47,18 +48,21 @@ func pngFilter(buf []byte, column, predictor, colors, bpp int) (out []byte, err 
 
 	width := column * colors * bpp / 8
 	height := len(buf) / (width + 1)
-	out = make([]byte, width*height)
+	out = make([]byte, len(buf)-height)
 	hist := make([]byte, width+1)
 	offset := 0
+	loge("size", width, height)
 	tmp := out[:]
 	for offset < len(buf) {
 		for i := 0; i < width+1; i++ {
-			hist[i] = buf[offset]
+			hist[i] += buf[offset]
 			offset++
 		}
 		m := copy(tmp, hist[1:])
 		tmp = tmp[m:]
 
 	}
+	//loge(string(out))
+
 	return
 }

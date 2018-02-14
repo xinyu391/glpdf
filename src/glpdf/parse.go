@@ -333,7 +333,7 @@ func parseObject(fr RandomReader) (obj *PdfObj, err error) {
 	if token != TK_BEGIN_OBJ {
 		panic("shoule be 'obj'")
 	}
-	log("begin obj:", n, g, "obj")
+	//	log("begin obj:", n, g, "obj")
 	ref := ObjRef{n, g}
 	//read dictonary
 
@@ -341,7 +341,7 @@ func parseObject(fr RandomReader) (obj *PdfObj, err error) {
 	var data DataType
 	switch token {
 	case TK_BEGIN_DICT:
-		log("read dict of obj")
+		//		log("read dict of obj")
 		data, _ = parseDict(fr)
 
 	case TK_BEGIN_ARRAY:
@@ -440,8 +440,8 @@ func parseStreamWithLength(fr RandomReader, obj *PdfObj, length int32) {
 	dict, _ := obj.data.(Dict)
 	fr.Seek(stream.offset, os.SEEK_SET)
 	buf := make([]byte, length)
-	nn, _ := fr.Read(buf)
-	log(length, "read ", nn)
+	fr.Read(buf)
+	//	log(length, "read ", nn)
 	// 根据filter 解密
 	filter := dict[NAME_FILTER]
 	param := dict[NAME_DECODEPARMS]
